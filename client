@@ -1,1 +1,716 @@
+##ANALYZER.JS
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+
+function Analyzer({ apiBase, onEvent }) {
+  const [text, setText] = useState("S3cur3-Payload::alpha-4921");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  const uniqueChars = useMemo(() => new Set(text).size, [text]);
+  const score = Math.min(100, Math.round(((result?.entropy || 0) / 6) * 100));
+
+  useEffect(() => {
+    if (!text.trim()) {
+      setResult(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const response = await axios.post(`${apiBase}/analyze`, { text });
+        setResult(response.data);
+        setError("");
+        onEvent("Analyze", `Entropy scored at ${response.data.entropy}.`);
+      } catch (err) {
+        setError(err.response?.data?.error || "Analyzer service unavailable.");
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [apiBase, onEvent, text]);
+
+  return (
+    <section className="tool-grid">
+      <div className="panel control-panel">
+        <p className="eyebrow">Live strength scoring</p>
+        <h3>Entropy Analyzer</h3>
+        <label className="field">
+          <span>Message sample</span>
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            rows="10"
+          />
+        </label>
+        {error && <p className="error-text">{error}</p>}
+      </div>
+
+      <div className="panel analyzer-panel">
+        <p className="eyebrow">Risk telemetry</p>
+        <div className="score-ring" style={{ "--score": `${score}%` }}>
+          <strong>{score}</strong>
+          <span>score</span>
+        </div>
+        <h3>{result?.level || "Waiting for input"}</h3>
+        <p>{result?.recommendation || "Type a sample to start real-time analysis."}</p>
+
+        <div className="telemetry-grid">
+          <div>
+            <span>Entropy</span>
+            <strong>{result?.entropy ?? "0.000"}</strong>
+          </div>
+          <div>
+            <span>Length</span>
+            <strong>{text.length}</strong>
+          </div>
+          <div>
+            <span>Unique chars</span>
+            <strong>{uniqueChars}</strong>
+          </div>
+        </div>
+
+        <div className="meter">
+          <span style={{ width: `${score}%` }} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default Analyzer;
+
+
+
+
+
+
+##Attack.JS
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+
+function Attack({ apiBase, onEvent }) {
+  const [text, setText] = useState("Dwwdfn dw gdzq");
+  const [results, setResults] = useState([]);
+  const [frequency, setFrequency] = useState([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!text.trim()) {
+      setResults([]);
+      setFrequency([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const response = await axios.post(`${apiBase}/attack`, { text });
+        setResults(response.data.results || []);
+        setFrequency(response.data.frequency || []);
+        setError("");
+        onEvent("Attack", "Caesar brute-force simulation completed.");
+      } catch (err) {
+        setError(err.response?.data?.error || "Attack service unavailable.");
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [apiBase, onEvent, text]);
+
+  return (
+    <section className="attack-layout">
+      <div className="panel control-panel">
+        <p className="eyebrow">Real-time cryptanalysis</p>
+        <h3>Caesar Attack Lab</h3>
+        <label className="field">
+          <span>Encrypted text</span>
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            rows="7"
+          />
+        </label>
+        {error && <p className="error-text">{error}</p>}
+      </div>
+
+      <div className="panel frequency-panel">
+        <p className="eyebrow">Letter frequency</p>
+        <div className="bar-list">
+          {frequency.slice(0, 8).map((item) => (
+            <div className="bar-row" key={item.letter}>
+              <span>{item.letter}</span>
+              <div>
+                <i style={{ width: `${item.percentage}%` }} />
+              </div>
+              <strong>{item.percentage}%</strong>
+            </div>
+          ))}
+          {frequency.length === 0 && <p>No alphabetic characters detected.</p>}
+        </div>
+      </div>
+
+      <div className="panel table-panel">
+        <div className="output-header">
+          <div>
+            <p className="eyebrow">Recovered candidates</p>
+            <h3>All 26 shifts</h3>
+          </div>
+          <span>{results.length} keys tested</span>
+        </div>
+
+        <div className="result-table">
+          <div className="table-head">
+            <span>Key</span>
+            <span>Candidate plaintext</span>
+          </div>
+          {results.map((row) => (
+            <div className="table-row" key={row[0]}>
+              <strong>{row[0]}</strong>
+              <span>{row[1]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default Attack;
+
+
+#CHAT.JS
+import React, { useMemo, useState } from "react";
+import axios from "axios";
+
+const modes = [
+  { id: "aes", label: "AES", helper: "Fast symmetric encryption" },
+  { id: "rsa", label: "RSA", helper: "Public-key encryption" },
+  { id: "caesar", label: "Caesar", helper: "Classical shift cipher" },
+  { id: "vigenere", label: "Vigenere", helper: "Polyalphabetic cipher" },
+];
+
+function Chat({ apiBase, onEvent }) {
+  const [mode, setMode] = useState("aes");
+  const [text, setText] = useState("Meet at 21:30 near node alpha.");
+  const [key, setKey] = useState("");
+  const [caesarKey, setCaesarKey] = useState(3);
+  const [vigenereKey, setVigenereKey] = useState("cipher");
+  const [cipher, setCipher] = useState("");
+  const [plain, setPlain] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const payloadSize = useMemo(() => new Blob([text]).size, [text]);
+
+  const endpoint = (action) => `${apiBase}/${mode}/${action}`;
+
+  const encrypt = async () => {
+    setLoading(true);
+    setError("");
+    setPlain("");
+    try {
+      const body =
+        mode === "caesar"
+          ? { text, key: Number(caesarKey) }
+          : mode === "vigenere"
+          ? { text, key: vigenereKey }
+          : { text };
+      const response = await axios.post(endpoint("encrypt"), body);
+      setCipher(response.data.cipher);
+      if (response.data.key) {
+        setKey(response.data.key);
+      }
+      onEvent("Encrypt", `${mode.toUpperCase()} encrypted ${payloadSize} bytes.`);
+    } catch (err) {
+      setError(err.response?.data?.error || "Encryption failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const decrypt = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const body =
+        mode === "aes"
+          ? { cipher, key }
+          : mode === "caesar"
+          ? { text: cipher, key: Number(caesarKey) }
+          : mode === "vigenere"
+          ? { text: cipher, key: vigenereKey }
+          : { cipher };
+      const response = await axios.post(endpoint("decrypt"), body);
+      setPlain(response.data.message);
+      onEvent("Decrypt", `${mode.toUpperCase()} payload decrypted successfully.`);
+    } catch (err) {
+      setError(err.response?.data?.error || "Decryption failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="tool-grid">
+      <div className="panel control-panel">
+        <p className="eyebrow">Encryption workflow</p>
+        <h3>Secure Message Lab</h3>
+
+        <div className="mode-switch">
+          {modes.map((item) => (
+            <button
+              className={mode === item.id ? "mode active" : "mode"}
+              key={item.id}
+              onClick={() => {
+                setMode(item.id);
+                setCipher("");
+                setPlain("");
+                setError("");
+              }}
+            >
+              <strong>{item.label}</strong>
+              <span>{item.helper}</span>
+            </button>
+          ))}
+        </div>
+
+        <label className="field">
+          <span>Plain text</span>
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            rows="8"
+          />
+        </label>
+
+        <div className="inline-fields">
+          {mode === "caesar" && (
+            <label className="field compact">
+              <span>Shift key</span>
+              <input
+                max="25"
+                min="0"
+                onChange={(event) => setCaesarKey(event.target.value)}
+                type="number"
+                value={caesarKey}
+              />
+            </label>
+          )}
+
+          {mode === "vigenere" && (
+            <label className="field compact grow">
+              <span>Keyword</span>
+              <input
+                onChange={(event) => setVigenereKey(event.target.value)}
+                placeholder="Example: cipher"
+                value={vigenereKey}
+              />
+            </label>
+          )}
+
+          {mode === "aes" && (
+            <label className="field compact grow">
+              <span>AES key</span>
+              <input
+                onChange={(event) => setKey(event.target.value)}
+                placeholder="Generated after encryption"
+                value={key}
+              />
+            </label>
+          )}
+        </div>
+
+        <div className="action-row">
+          <button className="primary-btn" disabled={loading || !text} onClick={encrypt}>
+            {loading ? "Processing" : "Encrypt"}
+          </button>
+          <button className="ghost-btn" disabled={loading || !cipher} onClick={decrypt}>
+            Decrypt
+          </button>
+        </div>
+        {error && <p className="error-text">{error}</p>}
+      </div>
+
+      <div className="panel output-panel">
+        <div className="output-header">
+          <div>
+            <p className="eyebrow">Cipher output</p>
+            <h3>{mode.toUpperCase()} result</h3>
+          </div>
+          <span>{payloadSize} bytes</span>
+        </div>
+
+        <div className="terminal-box">
+          <span className="terminal-label">ciphertext</span>
+          <pre>{cipher || "Run encryption to generate protected output."}</pre>
+        </div>
+
+        <div className="terminal-box success">
+          <span className="terminal-label">decrypted text</span>
+          <pre>{plain || "Decrypt a cipher to verify message integrity."}</pre>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default Chat;
+
+
+#Dasboard.js
+function Dashboard({ apiStatus, events }) {
+  return (
+    <section className="dashboard-grid">
+      <div className="hero-panel panel">
+        <p className="eyebrow">Cryptography and Network Security</p>
+        <h1>Enterprise-grade cipher lab for secure message workflows.</h1>
+        <p>
+          Demonstrate encryption, entropy scoring, and classical cryptanalysis
+          with a polished interface built for live project review.
+        </p>
+        <div className="hero-actions">
+          <span>Real-time API monitor</span>
+          <span>Attack simulation</span>
+          <span>Strength telemetry</span>
+        </div>
+      </div>
+
+      <div className="panel signal-panel">
+        <p className="eyebrow">System health</p>
+        <div className="large-signal">
+          <span className={`status-dot ${apiStatus}`} />
+          <strong>{apiStatus}</strong>
+        </div>
+        <p>
+          Backend availability is checked every five seconds so your demo
+          immediately shows whether the security service is reachable.
+        </p>
+      </div>
+
+      <div className="stats-grid">
+        <article className="metric-card">
+          <span>AES</span>
+          <strong>Fernet</strong>
+          <p>Symmetric encryption with generated session keys.</p>
+        </article>
+        <article className="metric-card">
+          <span>RSA</span>
+          <strong>2048-bit</strong>
+          <p>Public-key encryption for short confidential payloads.</p>
+        </article>
+        <article className="metric-card">
+          <span>Caesar</span>
+          <strong>26 shifts</strong>
+          <p>Classical cipher demo with full brute-force recovery.</p>
+        </article>
+        <article className="metric-card">
+          <span>Toolkit</span>
+          <strong>SHA/HMAC</strong>
+          <p>Integrity checks detect tampering in message payloads.</p>
+        </article>
+      </div>
+
+      <div className="panel timeline-panel">
+        <p className="eyebrow">Activity stream</p>
+        <div className="timeline">
+          {events.map((event, index) => (
+            <div className="timeline-item" key={`${event.type}-${index}`}>
+              <span>{event.type}</span>
+              <p>{event.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default Dashboard;
+
+
+
+
+##Toolkit.js
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+
+const algorithms = [
+  { id: "sha256", label: "SHA-256" },
+  { id: "sha512", label: "SHA-512" },
+  { id: "blake2b", label: "BLAKE2b" },
+];
+
+function Toolkit({ apiBase, onEvent }) {
+  const [text, setText] = useState("payment_id=PX-4912&amount=7500");
+  const [secret, setSecret] = useState("project-secret-key");
+  const [algorithm, setAlgorithm] = useState("sha256");
+  const [digest, setDigest] = useState("");
+  const [signature, setSignature] = useState("");
+  const [verifyInput, setVerifyInput] = useState("");
+  const [valid, setValid] = useState(null);
+  const [error, setError] = useState("");
+
+  const shortDigest = useMemo(
+    () => (digest ? `${digest.slice(0, 18)}...${digest.slice(-12)}` : "Pending"),
+    [digest]
+  );
+
+  useEffect(() => {
+    if (!text.trim()) {
+      setDigest("");
+      setSignature("");
+      setValid(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const [hashResponse, hmacResponse] = await Promise.all([
+          axios.post(`${apiBase}/toolkit/hash`, { text, algorithm }),
+          axios.post(`${apiBase}/toolkit/hmac`, { text, secret, algorithm }),
+        ]);
+        setDigest(hashResponse.data.digest);
+        setSignature(hmacResponse.data.signature);
+        setVerifyInput((current) => current || hmacResponse.data.signature);
+        setError("");
+        onEvent("Toolkit", `${algorithm.toUpperCase()} digest and HMAC generated.`);
+      } catch (err) {
+        setError(err.response?.data?.error || "Toolkit service unavailable.");
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [algorithm, apiBase, onEvent, secret, text]);
+
+  const verify = async () => {
+    try {
+      const response = await axios.post(`${apiBase}/toolkit/hmac/verify`, {
+        text,
+        secret,
+        signature: verifyInput,
+        algorithm,
+      });
+      setValid(response.data.valid);
+      onEvent("Verify", response.data.valid ? "HMAC signature verified." : "HMAC verification failed.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Verification failed.");
+    }
+  };
+
+  return (
+    <section className="tool-grid">
+      <div className="panel control-panel">
+        <p className="eyebrow">Integrity engineering</p>
+        <h3>Hash and HMAC Toolkit</h3>
+
+        <div className="mode-switch">
+          {algorithms.map((item) => (
+            <button
+              className={algorithm === item.id ? "mode active" : "mode"}
+              key={item.id}
+              onClick={() => setAlgorithm(item.id)}
+            >
+              <strong>{item.label}</strong>
+              <span>Digest algorithm</span>
+            </button>
+          ))}
+        </div>
+
+        <label className="field">
+          <span>Message or payload</span>
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            rows="7"
+          />
+        </label>
+
+        <label className="field">
+          <span>Shared secret</span>
+          <input
+            value={secret}
+            onChange={(event) => setSecret(event.target.value)}
+          />
+        </label>
+
+        <label className="field">
+          <span>Signature to verify</span>
+          <input
+            value={verifyInput}
+            onChange={(event) => setVerifyInput(event.target.value)}
+          />
+        </label>
+
+        <div className="action-row">
+          <button className="primary-btn" onClick={verify} disabled={!verifyInput}>
+            Verify HMAC
+          </button>
+        </div>
+        {error && <p className="error-text">{error}</p>}
+      </div>
+
+      <div className="panel output-panel">
+        <div className="output-header">
+          <div>
+            <p className="eyebrow">Tamper detection</p>
+            <h3>{valid === null ? "Live digest" : valid ? "Valid signature" : "Tampered payload"}</h3>
+          </div>
+          <span>{algorithm.toUpperCase()}</span>
+        </div>
+
+        <div className={valid === false ? "integrity-card invalid" : "integrity-card"}>
+          <span>Integrity state</span>
+          <strong>{valid === null ? "Ready" : valid ? "Verified" : "Rejected"}</strong>
+          <p>{shortDigest}</p>
+        </div>
+
+        <div className="terminal-box">
+          <span className="terminal-label">hash digest</span>
+          <pre>{digest || "Hash output will appear here."}</pre>
+        </div>
+
+        <div className="terminal-box success">
+          <span className="terminal-label">hmac signature</span>
+          <pre>{signature || "HMAC signature will appear here."}</pre>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default Toolkit;
+
+
+APP.JS
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import Dashboard from "./components/Dashboard";
+import Chat from "./components/Chat";
+import Analyzer from "./components/Analyzer";
+import Attack from "./components/Attack";
+import Toolkit from "./components/Toolkit";
+import "./App.css";
+
+const API_BASE = "http://127.0.0.1:5000";
+
+const navItems = [
+  { id: "dashboard", label: "Dashboard", hint: "Live overview" },
+  { id: "chat", label: "Crypto Lab", hint: "AES, RSA, Caesar" },
+  { id: "toolkit", label: "Toolkit", hint: "Hash and HMAC" },
+  { id: "analyze", label: "Analyzer", hint: "Entropy scoring" },
+  { id: "attack", label: "Attack Lab", hint: "Brute force" },
+];
+
+function App() {
+  const [page, setPage] = useState("dashboard");
+  const [apiStatus, setApiStatus] = useState("checking");
+  const [events, setEvents] = useState([
+    { type: "System", detail: "CipherShield console initialized." },
+  ]);
+
+  const addEvent = useCallback((type, detail) => {
+    setEvents((current) => [{ type, detail }, ...current].slice(0, 8));
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const checkHealth = async () => {
+      try {
+        await axios.get(`${API_BASE}/health`, { timeout: 1800 });
+        if (active) {
+          setApiStatus("online");
+        }
+      } catch {
+        if (active) {
+          setApiStatus("offline");
+        }
+      }
+    };
+
+    checkHealth();
+    const timer = setInterval(checkHealth, 5000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const activeTitle = useMemo(
+    () => navItems.find((item) => item.id === page)?.label || "Dashboard",
+    [page]
+  );
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">CS</div>
+          <div>
+            <h1>CipherShield</h1>
+            <p>CNS security console</p>
+          </div>
+        </div>
+
+        <nav className="nav-list">
+          {navItems.map((item) => (
+            <button
+              className={page === item.id ? "nav-item active" : "nav-item"}
+              key={item.id}
+              onClick={() => setPage(item.id)}
+            >
+              <span>{item.label}</span>
+              <small>{item.hint}</small>
+            </button>
+          ))}
+        </nav>
+
+        <div className="status-card">
+          <span className={`status-dot ${apiStatus}`} />
+          <div>
+            <strong>API {apiStatus}</strong>
+            <p>Flask service at 127.0.0.1:5000</p>
+          </div>
+        </div>
+      </aside>
+
+      <main className="main">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Active workspace</p>
+            <h2>{activeTitle}</h2>
+          </div>
+          <div className="topbar-metrics">
+            <div>
+              <span>Algorithms</span>
+              <strong>7</strong>
+            </div>
+            <div>
+              <span>Signals</span>
+              <strong>Live</strong>
+            </div>
+          </div>
+        </header>
+
+        <div className="workspace">
+          {page === "dashboard" && (
+            <Dashboard apiStatus={apiStatus} events={events} />
+          )}
+          {page === "chat" && <Chat apiBase={API_BASE} onEvent={addEvent} />}
+          {page === "toolkit" && (
+            <Toolkit apiBase={API_BASE} onEvent={addEvent} />
+          )}
+          {page === "analyze" && (
+            <Analyzer apiBase={API_BASE} onEvent={addEvent} />
+          )}
+          {page === "attack" && <Attack apiBase={API_BASE} onEvent={addEvent} />}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default App;
+
+
 
