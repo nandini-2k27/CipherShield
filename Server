@@ -1,0 +1,50 @@
+##Features.py
+from collections import Counter
+import math
+
+def entropy(text):
+    if not text:
+        return 0
+    freq = Counter(text)
+    total = len(text)
+    return -sum((c/total)*math.log2(c/total) for c in freq.values())
+
+
+
+
+##attacks\brute.py
+from collections import Counter
+import math
+
+def entropy(text):
+    if not text:
+        return 0
+    freq = Counter(text)
+    total = len(text)
+    return -sum((c/total)*math.log2(c/total) for c in freq.values())
+
+
+
+##attack\frequency.py
+from collections import Counter
+
+
+def frequency_analysis(text):
+    letters = [ch.upper() for ch in text if ch.isalpha()]
+    total = len(letters)
+    if total == 0:
+        return []
+
+    counts = Counter(letters)
+    return [
+        {
+            "letter": letter,
+            "count": count,
+            "percentage": round((count / total) * 100, 2),
+        }
+        for letter, count in counts.most_common()
+    ]
+
+
+
+
